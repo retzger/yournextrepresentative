@@ -20,6 +20,7 @@ urlpatterns = [
     url(r"^upload_document/", include("official_documents.urls")),
     url(r"^results/", include("results.urls")),
     url(r"^wombles/", include("wombles.urls")),
+    url(r"^data/", include("data_exports.urls")),
     url(r"", include("ynr_refactoring.urls")),
     url(
         r"^robots\.txt$",

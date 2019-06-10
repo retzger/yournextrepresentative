@@ -57,6 +57,9 @@ class PersonIdentifierQuerySet(models.query.QuerySet):
             value_type__in=[vt[0] for vt in self.select_choices()]
         )
 
+    def db_values(self):
+        return self.order_by().values_list("value_type", flat=True).distinct()
+
 
 class PersonQuerySet(models.query.QuerySet):
     def missing(self, field):

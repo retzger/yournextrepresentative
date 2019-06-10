@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+  <form action="" method="get">
+    {{ filter.form.as_p }}
+    <input type="submit" />
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Ballot Paper</th>
+        <th>Person Name</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for obj in objects %}
+      <tr>
+        <td><a href="obj.ballot_paper.get_absolute_url">{{ obj.ballot_paper_id }}</a></td>
+        <td><a href="/person/{{ obj.person_id }}">{{ obj.person_name }}</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

@@ -136,6 +136,7 @@ INSTALLED_APPS = (
     "frontend",
     "sopn_parsing",
     "django_celery_results",
+    "data_exports",
 )
 
 CELERY_RESULT_BACKEND = "django-db"
