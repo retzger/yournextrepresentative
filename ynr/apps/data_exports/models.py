@@ -11,26 +11,24 @@ class PersonIdentifierField(models.CharField):
 
 
 class MaterializedModelMixin:
+    @classmethod
     @transaction.atomic
-    def refresh_view(self):
+    def refresh_view(cls):
         with connection.cursor() as cursor:
             cursor.execute(
-                "REFRESH MATERIALIZED VIEW CONCURRENTLY {}".format(
-                    self._meta.db_table
-                )
+                "REFRESH MATERIALIZED VIEW {}".format(cls._meta.db_table)
             )
 
+    @classmethod
     @transaction.atomic
-    def recreate_view(self):
+    def recreate_view(cls):
         with connection.cursor() as cursor:
             cursor.execute
             cursor.execute(
-                "DROP MATERIALIZED VIEW IF EXISTS {}".format(
-                    self._meta.db_table
-                )
+                "DROP MATERIALIZED VIEW IF EXISTS {}".format(cls._meta.db_table)
             )
-            print(self.get_view_sql())
-            cursor.execute(self.get_view_sql())
+            print(cls.get_view_sql())
+            cursor.execute(cls.get_view_sql())
 
 
 class MaterializedMemberships(MaterializedModelMixin, models.Model):
@@ -38,7 +36,8 @@ class MaterializedMemberships(MaterializedModelMixin, models.Model):
         db_table = "materialized_memberships"
         managed = False
 
-    def get_view_sql(self):
+    @classmethod
+    def get_view_sql(cls):
         """
         The SQL to create a materialized view containing a row per membership
         (candidacy)
@@ -52,7 +51,6 @@ class MaterializedMemberships(MaterializedModelMixin, models.Model):
         """
 
         sql_str = """
-            CREATE EXTENSION IF NOT EXISTS tablefunc;
             CREATE MATERIALIZED VIEW {view_name} AS
             SELECT 
                 mem.id as id,
@@ -67,7 +65,7 @@ class MaterializedMemberships(MaterializedModelMixin, models.Model):
                 parties.ec_id as party_id,
                 parties.name as party_name,
                 mem.elected,
-                {person_identifier_selects}
+                person_ids.json_data as identifiers
             FROM popolo_membership as mem
             JOIN people_person person on mem.person_id = person.id
             JOIN (
@@ -88,51 +86,32 @@ class MaterializedMemberships(MaterializedModelMixin, models.Model):
             ON mem.party_id = parties.id
             
             LEFT JOIN (
-                SELECT * from crosstab(
-                    $$SELECT
-                        person_id,
-                        value_type::text,
-                        value::text 
-                        FROM people_personidentifier
-                        ORDER BY 1,2$$,
-                    $$VALUES 
-                        {person_identifier_values}
-                    $$
-                ) as ids (
-                    person_id int,
-                    {person_identifier_as_casts}
-                )
+                
+                SELECT p.id as person_id, json_ids as json_data 
+				FROM people_person p
+				JOIN (
+					SELECT person_id, json_object_agg(
+					src.value_type, src.value
+				)::jsonb AS json_ids
+				FROM (
+	  				SELECT person_id, value_type, value
+    				FROM people_personidentifier
+					GROUP BY person_id, value_type, value
+				) src
+	
+			   GROUP BY person_id
+			   ) src_json
+			   ON p.id = src_json.person_id
+                
+                
+                
             )
             AS person_ids
             ON person_ids.person_id=person.id
             ORDER BY mem.person_id
         """
 
-        # Populate the person identifier columns
-        # These are declared as fields on the model class using the
-        # PersonIdentifierField class
-        person_identifier_fields = [
-            f.name
-            for f in self._meta.fields
-            if isinstance(f, PersonIdentifierField)
-        ]
-
-        person_identifier_values = ",\n".join(
-            ["('{}'::text)".format(pi) for pi in person_identifier_fields]
-        )
-        person_identifier_as_casts = ",\n".join(
-            ["{} text".format(pi) for pi in person_identifier_fields]
-        )
-        person_identifier_selects = ",\n".join(
-            ["person_ids.{}".format(pi) for pi in person_identifier_fields]
-        )
-
-        return sql_str.format(
-            view_name=self._meta.db_table,
-            person_identifier_values=person_identifier_values,
-            person_identifier_as_casts=person_identifier_as_casts,
-            person_identifier_selects=person_identifier_selects,
-        )
+        return sql_str.format(view_name=cls._meta.db_table)
 
     membership = models.OneToOneField(
         "popolo.Membership", db_column="id", primary_key=True
