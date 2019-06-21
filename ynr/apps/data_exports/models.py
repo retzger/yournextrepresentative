@@ -1,13 +1,8 @@
 from django.db import models
 from django.db import transaction, connection
+from django.contrib.postgres.fields import JSONField
 
 from people.models import PersonIdentifier
-
-
-class PersonIdentifierField(models.CharField):
-    def __init__(self, *args, **kwargs):
-        kwargs["max_length"] = 800
-        super().__init__(*args, **kwargs)
 
 
 class MaterializedModelMixin:
@@ -130,18 +125,4 @@ class MaterializedMemberships(MaterializedModelMixin, models.Model):
     election_date = models.DateField()
     division_name = models.CharField(max_length=800)
 
-    # Define the person identifier fields we want in the view.
-    # There is no validation here,so `foo_bar = PersonIdentifierField()` will
-    # create a column, and that column will always be blank unless
-    # a value_type of `foo_bar` actually exists in the person identifier table
-    email = PersonIdentifierField()
-    facebook_page_url = PersonIdentifierField()
-    facebook_personal_url = PersonIdentifierField()
-    homepage_url = PersonIdentifierField()
-    linkedin_url = PersonIdentifierField()
-    party_ppc_page_url = PersonIdentifierField()
-    theyworkforyou = PersonIdentifierField()
-    twitter_username = PersonIdentifierField()
-    wikidata_id = PersonIdentifierField()
-    wikipedia_url = PersonIdentifierField()
-    ynmep_id = PersonIdentifierField()
+    identifiers = JSONField()
